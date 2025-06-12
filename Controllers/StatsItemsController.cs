@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using StatsApi.Models;
+using StatsApi.Services;
 
 namespace StatsApi.Controllers
 {
@@ -13,96 +8,64 @@ namespace StatsApi.Controllers
     [ApiController]
     public class StatsItemsController : ControllerBase
     {
-        private readonly ScoreContext _context;
+        private readonly ScoreService _scoreService;
 
-        public StatsItemsController(ScoreContext context)
+        public StatsItemsController(ScoreService scoreService)
         {
-            _context = context;
+            _scoreService = scoreService;
         }
 
         // GET: api/StatsItems
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Score>>> GetScore()
+        public async Task<ActionResult<IEnumerable<Score>>> GetScores()
         {
-            return await _context.Score.ToListAsync();
+            var scores = await _scoreService.GetAllAsync();
+            return Ok(scores);
         }
 
         // GET: api/StatsItems/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Score>> GetScore(long id)
+        [HttpGet("{id:length(24)}")]
+        public async Task<ActionResult<Score>> GetScore(string id)
         {
-            var score = await _context.Score.FindAsync(id);
+            var score = await _scoreService.GetByIdAsync(id);
 
-            if (score == null)
-            {
+            if (score is null)
                 return NotFound();
-            }
 
-            return score;
-        }
-
-        // PUT: api/StatsItems/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutScore(long id, Score score)
-        {
-            if (id != score.Id)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(score).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ScoreExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
+            return Ok(score);
         }
 
         // POST: api/StatsItems
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         public async Task<ActionResult<Score>> PostScore(Score score)
         {
-            _context.Score.Add(score);
-            await _context.SaveChangesAsync();
-
-            //return CreatedAtAction("GetScore", new { id = score.Id }, score);
+            await _scoreService.CreateAsync(score);
             return CreatedAtAction(nameof(GetScore), new { id = score.Id }, score);
         }
 
-        // DELETE: api/StatsItems/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteScore(long id)
+        // PUT: api/StatsItems/5
+        [HttpPut("{id:length(24)}")]
+        public async Task<IActionResult> PutScore(string id, Score score)
         {
-            var score = await _context.Score.FindAsync(id);
-            if (score == null)
-            {
+            var existing = await _scoreService.GetByIdAsync(id);
+            if (existing is null)
                 return NotFound();
-            }
 
-            _context.Score.Remove(score);
-            await _context.SaveChangesAsync();
-
+            score.Id = id;
+            await _scoreService.UpdateAsync(id, score);
             return NoContent();
         }
 
-        private bool ScoreExists(long id)
+        // DELETE: api/StatsItems/5
+        [HttpDelete("{id:length(24)}")]
+        public async Task<IActionResult> DeleteScore(string id)
         {
-            return _context.Score.Any(e => e.Id == id);
+            var score = await _scoreService.GetByIdAsync(id);
+            if (score is null)
+                return NotFound();
+
+            await _scoreService.DeleteAsync(id);
+            return NoContent();
         }
     }
 }
